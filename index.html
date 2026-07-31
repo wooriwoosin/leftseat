@@ -1419,17 +1419,40 @@ function renderReport() {
 
   // 헤더
   html += '<div class="rpt-header">';
+  // 제목 + 메타 행
+  html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px">';
+  html += '<div>';
   html += '<div class="rpt-title">📋 이석 관리 현황 보고서</div>';
-  html += '<div class="rpt-period">집계 기간: '+esc(period)+'&nbsp;&nbsp;|&nbsp;&nbsp;작성일: '+new Date().toLocaleDateString('ko-KR')+'</div>';
-  html += '<div class="rpt-kpis">';
-  html += '<div class="rpt-kpi"><div class="rpt-kpi-v">'+ALL.length+'</div><div class="rpt-kpi-l">총 이석건수</div></div>';
-  html += '<div class="rpt-kpi"><div class="rpt-kpi-v">'+pplCnt+'</div><div class="rpt-kpi-l">이석 인원</div></div>';
-  html += '<div class="rpt-kpi"><div class="rpt-kpi-v">'+hm(totalMins)+'</div><div class="rpt-kpi-l">총 이석시간</div></div>';
-  html += '<div class="rpt-kpi"><div class="rpt-kpi-v" style="color:#FECACA">'+alertTotal+'</div><div class="rpt-kpi-l">이상 이석</div></div>';
-  html += '<div class="rpt-kpi"><div class="rpt-kpi-v">'+eduGroups.length+'</div><div class="rpt-kpi-l">교육 그룹</div></div>';
-  html += '<div class="rpt-kpi"><div class="rpt-kpi-v">'+meetGroups.length+'</div><div class="rpt-kpi-l">회의 그룹</div></div>';
-  html += '<div class="rpt-kpi"><div class="rpt-kpi-v">'+uninputs.length+'</div><div class="rpt-kpi-l">미입력</div></div>';
-  html += '</div></div>';
+  html += '<div style="font-size:12px;opacity:.75;margin-top:4px">집계 기간: <strong>'+esc(period)+'</strong></div>';
+  html += '</div>';
+  html += '<div style="text-align:right;font-size:11px;opacity:.7;line-height:1.8">';
+  html += '작성일 '+new Date().toLocaleDateString('ko-KR')+'<br>';
+  html += '총 '+ALL.length+'건 · '+pplCnt+'명';
+  html += '</div>';
+  html += '</div>';
+  // KPI 카드 그리드 — 2줄 구성 (이석현황 | 이상현황)
+  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">';
+  // 이석 현황 (4개)
+  function rKpi(v, l, accent) {
+    return '<div style="background:rgba(255,255,255,.12);border-radius:8px;padding:10px 12px;border-left:3px solid rgba(255,255,255,'+(accent?.4:.15)+')">'+
+      '<div style="font-size:22px;font-weight:800;line-height:1;margin-bottom:3px">'+v+'</div>'+
+      '<div style="font-size:10px;opacity:.75;letter-spacing:.3px">'+l+'</div>'+
+    '</div>';
+  }
+  html += rKpi(ALL.length.toLocaleString(), '총 이석건수', false);
+  html += rKpi(pplCnt+'명', '이석 인원', false);
+  html += rKpi(hm(totalMins), '총 이석시간', false);
+  html += rKpi(nbCnt+'건', '비업무 이석', false);
+  // 이상 현황 (4개, 강조)
+  html += '<div style="background:rgba(220,40,40,.25);border-radius:8px;padding:10px 12px;border-left:3px solid rgba(255,100,100,.6)">';
+  html += '<div style="font-size:22px;font-weight:800;line-height:1;margin-bottom:3px;color:#FECACA">'+alertTotal+'</div>';
+  html += '<div style="font-size:10px;opacity:.75">이상 이석 합계</div>';
+  html += '</div>';
+  html += rKpi(uninputs.length+'건', '사유 미입력', uninputs.length>0);
+  html += rKpi(eduGroups.length+'그룹', '교육 매칭', false);
+  html += rKpi(meetGroups.length+'그룹', '회의 매칭', false);
+  html += '</div>';
+  html += '</div>';
 
   // ── 2컬럼: 이상이석 왼쪽, 교육+회의 오른쪽
   html += '<div class="rpt-section-cols">';
@@ -1443,12 +1466,21 @@ function renderReport() {
     html += '<div style="font-size:11px;color:var(--grn);padding:4px 0">✅ 해당 없음</div>';
   } else {
     lunchOver.forEach(function(g){
-      html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--line);font-size:11px">';
-      html += '<span style="color:var(--t3);width:60px;flex-shrink:0">'+esc(g.날짜.slice(5))+'</span>';
-      html += '<b style="min-width:50px">'+esc(g.이름)+'</b>';
+      // 이석 기록별 시간+상세사유 수집
+      var details = g.recs.map(function(r){
+        return r.시작시+'~'+r.종료시+'('+r.이석분+'분'+(r.상세사유?'/'+r.상세사유:'')+')';
+      }).join('  ');
+      html += '<div style="padding:5px 0;border-bottom:1px solid var(--line)">';
+      // 1행: 날짜 이름 부서 | 합계시간 초과뱃지
+      html += '<div style="display:flex;align-items:center;gap:6px;font-size:11px">';
+      html += '<span style="color:var(--t3);width:58px;flex-shrink:0">'+esc(g.날짜.slice(5))+'</span>';
+      html += '<b style="min-width:52px">'+esc(g.이름)+'</b>';
       html += '<span style="color:var(--t3);font-size:10px">'+esc(g.부서)+'</span>';
       html += '<span style="margin-left:auto" class="mono c-red">'+hm(g.total)+'</span>';
       html += '<span class="bd bd-red" style="font-size:9px">+'+( g.total-60)+'분</span>';
+      html += '</div>';
+      // 2행: 이석 시간대 + 상세사유
+      html += '<div style="font-size:10px;color:var(--t3);padding:2px 0 0 58px">'+esc(details)+'</div>';
       html += '</div>';
     });
   }
@@ -1498,12 +1530,20 @@ function renderReport() {
   } else {
     etcAll.forEach(function(r){
       var isB=isBlankS(r.상세사유), isV=isVagueS(r.상세사유);
-      html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--line);font-size:11px">';
-      html += '<span style="color:var(--t3);width:60px;flex-shrink:0">'+esc(r.날짜.slice(5))+' '+esc(r.시작시)+'</span>';
-      html += '<b style="min-width:50px">'+esc(r.이름)+'</b>';
-      if (isB) html += '<span class="bd bd-red" style="font-size:9px">미기재</span>';
-      else if (isV) html += '<span class="bd bd-ora" style="font-size:9px">불충분</span>';
-      html += '<span style="margin-left:auto;color:var(--t2);font-size:11px;text-align:right;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.상세사유||'(없음)')+'</span>';
+      var statusBadge = isB
+        ? '<span class="bd bd-red" style="font-size:9px;flex-shrink:0">미기재</span>'
+        : isV ? '<span class="bd bd-ora" style="font-size:9px;flex-shrink:0">불충분</span>' : '';
+      html += '<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px solid var(--line);font-size:11px">';
+      // 날짜+시작시
+      html += '<span style="color:var(--t3);width:72px;flex-shrink:0;font-size:10px">'+esc(r.날짜.slice(5))+' '+esc(r.시작시)+'</span>';
+      // 이름
+      html += '<b style="width:52px;flex-shrink:0">'+esc(r.이름)+'</b>';
+      // 사유 내용 (왼쪽 배치, 넘치면 말줄임)
+      html += '<span style="flex:1;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.상세사유||'(없음)')+'</span>';
+      // 상태 뱃지
+      if (statusBadge) html += statusBadge;
+      // 이석시간 (오른쪽)
+      html += '<span class="mono" style="color:var(--t2);flex-shrink:0;font-size:10px">'+hm(r.이석분)+'</span>';
       html += '</div>';
     });
   }
