@@ -189,6 +189,17 @@ tbody tr:hover td{background:#FAFAFA}
 .pt-s{background:var(--grn-l);color:var(--grn);border:1px solid var(--grn-b)}
 .pt-m{background:var(--pur-l);color:var(--pur);border:1px solid var(--pur-b)}
 .mc-det{font-size:11px;color:var(--t3);margin-top:5px;line-height:1.5}
+.pt-x{background:transparent;color:var(--t2);border:1px dashed var(--line2);font-weight:500}
+.pt-u{background:var(--card2);color:var(--t2);border:1px solid var(--line2)}
+.pt .fx{font-size:9px;margin-left:2px;color:var(--ora)}
+.mc-conf{font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;border:1px solid}
+.mc-list{margin-top:6px;font-size:11px}
+.mc-list summary{cursor:pointer;color:var(--t3);font-size:10px;font-weight:600}
+.mc-list .li{display:flex;gap:6px;padding:3px 0;border-bottom:1px dashed var(--line);color:var(--t2)}
+.mc-list .li b{color:var(--t1);flex-shrink:0;min-width:46px}
+.mc-list .li .mono{flex-shrink:0;color:var(--t3);font-size:10px}
+.ftog{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--t2);cursor:pointer;margin-left:6px;user-select:none}
+.divl-n{font-weight:600;text-transform:none;letter-spacing:0;color:var(--t2)}
 
 /* PAGINATION */
 .pg{display:flex;align-items:center;justify-content:center;gap:3px;padding:10px 0 0}
@@ -303,10 +314,14 @@ tbody tr:hover td{background:#FAFAFA}
     <select class="fsel" id="fEduDate"><option value="">전체</option></select>
     <span class="flbl">검색</span>
     <input class="finp" id="fEduQ" placeholder="이름/내용..." style="width:130px">
+    <label class="ftog" title="사유를 '기타업무' 등으로 선택했어도 상세사유에 교육 키워드가 있으면 교육로 보정"><input type="checkbox" class="autoFixChk" checked> 상세사유로 자동보정</label>
   </div>
   <div class="kgrid" id="kEdu"></div>
-  <div class="divl">교육 그룹 매칭</div>
+  <div id="banEdu"></div>
+  <div class="divl">교육 그룹 매칭 <span class="divl-n" id="nEduG"></span></div>
   <div class="mgrid" id="mEdu"></div>
+  <div class="divl">단독 이석 · 매칭 상대 없음 <span class="divl-n" id="nEduS"></span></div>
+  <div id="sEdu"></div>
 </div>
 
 <!-- MEET -->
@@ -316,10 +331,14 @@ tbody tr:hover td{background:#FAFAFA}
     <select class="fsel" id="fMeetDate"><option value="">전체</option></select>
     <span class="flbl">검색</span>
     <input class="finp" id="fMeetQ" placeholder="이름/내용..." style="width:130px">
+    <label class="ftog" title="사유를 '기타업무' 등으로 선택했어도 상세사유에 회의 키워드가 있으면 회의로 보정"><input type="checkbox" class="autoFixChk" checked> 상세사유로 자동보정</label>
   </div>
   <div class="kgrid" id="kMeet"></div>
-  <div class="divl">회의 그룹 매칭</div>
+  <div id="banMeet"></div>
+  <div class="divl">회의 그룹 매칭 <span class="divl-n" id="nMeetG"></span></div>
   <div class="mgrid" id="mMeet"></div>
+  <div class="divl">단독 이석 · 매칭 상대 없음 <span class="divl-n" id="nMeetS"></span></div>
+  <div id="sMeet"></div>
 </div>
 
 <!-- ETC -->
@@ -333,6 +352,7 @@ tbody tr:hover td{background:#FAFAFA}
     <input class="finp" id="fEtcQ" placeholder="이름/내용..." style="width:130px">
   </div>
   <div class="kgrid" id="kEtc"></div>
+  <div id="banEtc"></div>
 
   <!-- 전체 내역 -->
   <div class="sec">
@@ -410,6 +430,27 @@ var MANAGERS = ['김민정','김지훈','문주희','최미라','강현우','김
 var ABSENT_KW = ['연차','반차','출근전','출근 전','pc자동','pc 자동','타부서에서 제자리'];
 
 var PG = 50;
+
+// 회의/교육 판정 키워드 (상세사유 기준, 소문자 비교)
+// 사유를 '기타업무' 등으로 잘못 선택해도 상세사유에 아래 키워드가 있으면 회의/교육으로 보정
+var MEET_KW = ['회의','미팅','meeting','mtg','면담','간담회','협의','논의','브리핑','스크럼','워크샵','워크숍',
+               '화상','컨퍼런스','킥오프','1on1','1:1','원온원','보고회','주간보고','월간보고','리뷰회','회의실'];
+var EDU_KW  = ['교육','강의','세미나','연수','코칭','ojt','트레이닝','training','온보딩','멘토링','수업',
+               '실습','특강','학습','강사','교육생','신입교육','직무교육','인수인계'];
+// 교육 역할 판정 (교육생 / 교육자)
+var EDU_RECV_KW = ['받','수강','청강','이수','교육생','듣','참석','참여','배움','배우'];
+var EDU_GIVE_KW = ['진행','강의','강사','실시','교육함','교육했','교육 함','시킴','시켜','알려','가르','담당','교육자','멘토'];
+// 보정 대상 사유 (이 사유로 선택된 건만 상세사유로 재분류)
+var FIXABLE_S = ['기타업무','기타','미입력'];
+// 매칭 기준
+var MATCH = {
+  minIoU: 0.45,        // 시간 겹침 비율(교집합/합집합) 최소
+  minCover: 0.6,       // 짧은 쪽 기준 겹침 비율 최소 (늦게 합류/일찍 이탈 허용)
+  slackStart: 10,      // 시작 시각 차이 허용(분)
+  slackEnd: 15,        // 종료 시각 차이 허용(분)
+  candIoU: 0.6         // 사유 다른 '추정 참석자' 후보 최소 겹침
+};
+var AUTO_FIX = true;
 
 // ══════════════════════════════════════════
 // STATE
@@ -514,6 +555,33 @@ function isUninput(d) {
 }
 
 // ══════════════════════════════════════════
+// 회의/교육 분류 (사유 + 상세사유)
+// ══════════════════════════════════════════
+function kwCount(s, list) {
+  s = (s||'').toLowerCase();
+  var n = 0;
+  list.forEach(function(k){ if (s.indexOf(k)>=0) n++; });
+  return n;
+}
+function classifyCat(d) {
+  var m = kwCount(d.상세사유, MEET_KW), e = kwCount(d.상세사유, EDU_KW);
+  // '회의실에서 교육' 처럼 둘 다 있으면 교육 우선 (회의실은 장소인 경우가 많음)
+  var guess = e>0 ? '교육' : m>0 ? '회의' : '';
+  d._cat = d._s; d._fix = false; d._mis = '';
+  if (d._nb || d._s==='점심') return;
+  if (d._s==='회의' || d._s==='교육') {
+    // 사유-상세사유 불일치 (예: 사유=회의, 상세='신입 교육 진행')
+    if (d._s==='회의' && e>0 && kwCount(d.상세사유,['회의','미팅','meeting'])===0) d._mis = '교육';
+    if (d._s==='교육' && m>0 && e===0) d._mis = '회의';
+    return;
+  }
+  if (guess && FIXABLE_S.indexOf(d._s)>=0) { d._cat = guess; d._fix = true; }
+}
+// 회의/교육 매칭에 쓰는 카테고리 (자동보정 토글 반영)
+function catOf(d) { return AUTO_FIX ? d._cat : d._s; }
+function isCat(d, cat) { return catOf(d)===cat; }
+
+// ══════════════════════════════════════════
 // 데이터 전처리
 // ══════════════════════════════════════════
 function prepData(raw) {
@@ -551,6 +619,7 @@ function prepData(raw) {
     d._nb = d.사유.indexOf('비업무')>=0;
     d._ex = isExcluded(d);
     d._ui = isUninput(d);
+    classifyCat(d);
     return d;
   }).filter(function(d){ return d.이름&&d.날짜; });
 }
@@ -773,10 +842,9 @@ function renderAll() {
     document.getElementById('kEtc').innerHTML='';
     document.getElementById('tbEtc').innerHTML='';
     document.getElementById('tbEtcP').innerHTML='';
-    document.getElementById('kEdu').innerHTML='';
-    document.getElementById('mEdu').innerHTML=uploadPromptHTML();
-    document.getElementById('kMeet').innerHTML='';
-    document.getElementById('mMeet').innerHTML=uploadPromptHTML();
+    renderMatch('교육');
+    renderMatch('회의');
+    document.getElementById('banEtc').innerHTML='';
     return;
   }
   if (curTab==='daily')   renderDaily();
@@ -1065,74 +1133,233 @@ function renderAlert() {
 // ══════════════════════════════════════════
 // EDU / MEET
 // ══════════════════════════════════════════
-function groupByOverlap(recs) {
+// ── 시간 겹침 지표
+function span(r) {
+  var s0=t2m(r.시작시), e0=t2m(r.종료시);
+  if (e0<s0) e0=s0+Math.max(r.이석분||0,1);   // 종료시 누락/역전 방어
+  if (e0===s0) e0=s0+1;
+  return [s0,e0];
+}
+function ovl(a,b) { return Math.max(0, Math.min(a[1],b[1])-Math.max(a[0],b[0])); }
+function iou(a,b) { var o=ovl(a,b); return o/Math.max(1, Math.max(a[1],b[1])-Math.min(a[0],b[0])); }
+function cover(a,b) { return ovl(a,b)/Math.max(1, Math.min(a[1]-a[0], b[1]-b[0])); }
+function pkey(r) { return r.계정||r.이름; }
+function mentions(a,b) { return !!(b.이름 && b.이름.length>=2 && (a.상세사유||'').indexOf(b.이름)>=0); }
+
+// 상세사유 주제 토큰 (키워드/일반어 제외) → 같은 시간대 다른 회의 분리용
+var TOPIC_STOP = ['진행','참석','참여','관련','업무','건','및','관련건','님','팀','함','받음','중','완료'];
+function topicTokens(r) {
+  var s=(r.상세사유||'').toLowerCase();
+  MEET_KW.concat(EDU_KW).forEach(function(k){ s=s.split(k).join(' '); });
+  return uniq(s.split(/[^0-9a-z가-힣]+/).filter(function(t){
+    return t.length>=2 && TOPIC_STOP.indexOf(t)<0 && !/^\d+$/.test(t);
+  }));
+}
+
+// 두 이석이 같은 회의/교육인지
+function linked(a,b) {
+  if (a.날짜!==b.날짜 || pkey(a)===pkey(b)) return false;
+  var A=span(a), B=span(b);
+  var near = Math.abs(A[0]-B[0])<=MATCH.slackStart && Math.abs(A[1]-B[1])<=MATCH.slackEnd;
+  var timeOk = near || iou(A,B)>=MATCH.minIoU || cover(A,B)>=MATCH.minCover;
+  // 상세사유에 상대 이름을 적었으면 시간 기준 완화
+  if (!timeOk && (mentions(a,b)||mentions(b,a)) && ovl(A,B)>0) timeOk = true;
+  if (!timeOk) return false;
+  // 둘 다 구체적 주제가 있는데 전혀 겹치지 않으면 다른 모임으로 판단 (같은 부서 + 시간 일치는 예외)
+  var ta=topicTokens(a), tb=topicTokens(b);
+  if (ta.length && tb.length && !(near && a.부서===b.부서) && !mentions(a,b) && !mentions(b,a)) {
+    var common = ta.filter(function(t){ return tb.some(function(u){ return u.indexOf(t)>=0||t.indexOf(u)>=0; }); });
+    if (!common.length) return false;
+  }
+  return true;
+}
+
+// 매칭: 짧은 이석부터 순회하며(긴 이석이 여러 회의를 잇는 것 방지), 기존 그룹 구성원 과반과
+// 연결되는 그룹 중 [겹침 + 같은 부서 가산]이 가장 큰 곳에 배정. 체인 방식이 아니라 연속된 다른 회의가 붙지 않음.
+function matchGroups(recs) {
   var byDate={};
-  recs.forEach(function(r){ byDate[r.날짜]=byDate[r.날짜]||[]; byDate[r.날짜].push(r); });
+  recs.forEach(function(r){ (byDate[r.날짜]=byDate[r.날짜]||[]).push(r); });
   var groups=[];
-  Object.keys(byDate).forEach(function(date){
-    var rs = byDate[date].slice().sort(function(a,b){return a.시작시.localeCompare(b.시작시);});
-    var used=[];
-    rs.forEach(function(r,i){
-      if (used.indexOf(i)>=0) return;
-      var g=[r]; used.push(i);
-      var rs0=t2m(r.시작시), re0=t2m(r.종료시);
-      for (var j=i+1;j<rs.length;j++){
-        if (used.indexOf(j)>=0) continue;
-        if (t2m(rs[j].시작시)<=re0+10&&t2m(rs[j].종료시)>=rs0-10){g.push(rs[j]);used.push(j);}
-      }
-      groups.push({date:date,recs:g});
+  Object.keys(byDate).sort().forEach(function(date){
+    var rs=byDate[date].slice().sort(function(a,b){
+      var da=span(a), db=span(b);
+      return ((da[1]-da[0])-(db[1]-db[0])) || a.시작시.localeCompare(b.시작시);
+    });
+    var gs=[];
+    rs.forEach(function(r){
+      var best=null, bestScore=0, R=span(r);
+      gs.forEach(function(g){
+        if (g.recs.some(function(o){return pkey(o)===pkey(r);})) return; // 같은 사람 중복 방지
+        var hit=0, sc=0, sd=0;
+        g.recs.forEach(function(o){ if (linked(r,o)) { hit++; sc+=iou(R,span(o)); if (o.부서===r.부서) sd++; } });
+        var score = hit ? sc/hit + 0.3*sd/g.recs.length : 0;
+        if (hit && hit*2>=g.recs.length && score>bestScore) { best=g; bestScore=score; }
+      });
+      if (best) best.recs.push(r); else gs.push({date:date, recs:[r]});
+    });
+    groups=groups.concat(gs);
+  });
+  groups.forEach(function(g){
+    var ss=g.recs.map(function(r){return r.시작시;}).sort(), es=g.recs.map(function(r){return r.종료시;}).sort();
+    g.s0=ss[0]; g.e0=es[es.length-1];
+    g.fixed=g.recs.filter(function(r){return r._fix;}).length;
+  });
+  return groups.sort(function(a,b){ return a.date.localeCompare(b.date)||a.s0.localeCompare(b.s0); });
+}
+
+// 사유를 다르게 선택한 '추정 참석자' — 같은 부서이거나 이름이 언급된, 시간이 거의 같은 이석
+function findCandidates(g, cat, pool) {
+  var ids=g.recs.map(pkey), depts=uniq(g.recs.map(function(r){return r.부서;}));
+  var G=[t2m(g.s0), t2m(g.e0)];
+  return pool.filter(function(c){
+    if (c.날짜!==g.date || ids.indexOf(pkey(c))>=0) return false;
+    if (catOf(c)===cat || c._s==='점심' || c._nb) return false;
+    var C=span(c);
+    var mention = g.recs.some(function(r){ return mentions(r,c)||mentions(c,r); });
+    if (mention) return ovl(C,G)>0;
+    return depts.indexOf(c.부서)>=0 && g.recs.some(function(r){ return iou(C,span(r))>=MATCH.candIoU; });
+  });
+}
+
+// 교육자/교육생 판정
+function eduRoles(g) {
+  var role={};
+  g.recs.forEach(function(r){
+    var det=r.상세사유||'';
+    if (kwCount(det,EDU_RECV_KW)) role[pkey(r)]='s';
+    else if (kwCount(det,EDU_GIVE_KW)) role[pkey(r)]='t';
+  });
+  // 이름 언급: "홍길동님께 교육받음" → 홍길동=교육자 / "홍길동 OJT 진행" → 홍길동=교육생
+  g.recs.forEach(function(r){
+    g.recs.forEach(function(o){
+      if (r===o || !mentions(r,o) || role[pkey(o)]) return;
+      if (role[pkey(r)]==='s') role[pkey(o)]='t';
+      else if (role[pkey(r)]==='t') role[pkey(o)]='s';
+      else { role[pkey(r)]='t'; role[pkey(o)]='s'; }
     });
   });
-  return groups;
+  // 남은 미분류 보정: 교육생만 있고 미분류 1명 → 교육자 / 교육자 있으면 나머지 교육생
+  var un=g.recs.filter(function(r){return !role[pkey(r)];});
+  var hasT=g.recs.some(function(r){return role[pkey(r)]==='t';}), hasS=g.recs.some(function(r){return role[pkey(r)]==='s';});
+  if (un.length===1 && hasS && !hasT) role[pkey(un[0])]='t';
+  else if (hasT) un.forEach(function(r){ role[pkey(r)]='s'; });
+  return {
+    t: g.recs.filter(function(r){return role[pkey(r)]==='t';}),
+    s: g.recs.filter(function(r){return role[pkey(r)]==='s';}),
+    u: g.recs.filter(function(r){return !role[pkey(r)];})
+  };
 }
 
-function renderEdu() {
-  if (!ALL.length) { document.getElementById('kEdu').innerHTML=''; document.getElementById('mEdu').innerHTML=uploadPromptHTML(); return; }
-  var df=document.getElementById('fEduDate').value, qf=document.getElementById('fEduQ').value.trim().toLowerCase();
-  var recs=F.filter(function(d){ return d.사유.indexOf('교육')>=0&&(!df||d.날짜===df)&&(!qf||d.이름.toLowerCase().indexOf(qf)>=0||d.상세사유.toLowerCase().indexOf(qf)>=0); });
-  var totM=recs.reduce(function(s,d){return s+d.이석분;},0);
-  document.getElementById('kEdu').innerHTML = kpi('교육 이석',recs.length,'건','#1570EF')+kpi('교육 인원',uniq(recs.map(function(d){return d.계정||d.이름;})).length,'명','#079455')+kpi('총 교육 시간',hm(totM),'','#DC6803');
-  var groups=groupByOverlap(recs);
-  if (!groups.length){document.getElementById('mEdu').innerHTML='<div class="empty">교육 데이터 없음</div>';return;}
-  document.getElementById('mEdu').innerHTML=groups.map(function(g){
-    var teachers=[],students=[];
-    g.recs.forEach(function(r){
-      var det=r.상세사유.toLowerCase(), otherNames=g.recs.filter(function(o){return (o.계정||o.이름)!==(r.계정||r.이름);}).map(function(o){return o.이름;});
-      if (det.indexOf('받')>=0) students.push(r);
-      else if (otherNames.some(function(n){return r.상세사유.indexOf(n)>=0;})) teachers.push(r);
-      else teachers.push(r);
-    });
-    var s0=g.recs.map(function(r){return r.시작시;}).sort()[0], e0=g.recs.map(function(r){return r.종료시;}).sort().reverse()[0];
-    var topDet=g.recs.map(function(r){return r.상세사유;}).filter(function(d){return d&&d.length>2&&!/^[\d.\-\s]+$/.test(d);})[0]||'';
-    return '<div class="mcard">'+
-      '<div class="mc-top"><div><div class="mc-ttl">📚 '+esc(g.date)+'</div><div class="mc-sub">'+esc(s0)+'~'+esc(e0)+' · '+g.recs.length+'명</div></div><span class="bd bd-grn">교육</span></div>'+
-      (teachers.length?'<div class="rl">교육자</div><div class="ptags">'+teachers.map(function(r){return '<span class="pt pt-t" title="'+esc(r.부서)+'">'+esc(r.이름)+'</span>';}).join('')+'</div>':'')+
-      (students.length?'<div class="rl">교육생</div><div class="ptags">'+students.map(function(r){return '<span class="pt pt-s" title="'+esc(r.부서)+'">'+esc(r.이름)+'</span>';}).join('')+'</div>':'')+
-      (topDet?'<div class="mc-det">📝 '+esc(topDet.slice(0,80))+'</div>':'')+
-      '<div class="mc-det">'+esc(g.recs.slice(0,3).map(function(r){return r.이름+': '+(r.상세사유||'미입력');}).join(' / '))+'</div>'+
-    '</div>';
-  }).join('');
+// 하위호환 (보고서/AI 프롬프트)
+function groupByOverlap(recs) { return matchGroups(recs).filter(function(g){return g.recs.length>=2;}); }
+
+// ── 공통 렌더링 (교육/회의 탭)
+function ptag(r, cls, extra) {
+  var tip = r.부서+' · '+r.시작시+'~'+r.종료시+' ('+hm(r.이석분)+')'+(r._fix?' · 사유 '+r._s+' → 상세사유로 보정':'')+(extra||'');
+  return '<span class="pt '+cls+'" title="'+esc(tip)+'">'+esc(r.이름)+(r._fix?'<span class="fx">보정</span>':'')+'</span>';
+}
+function candTag(c) {
+  return '<span class="pt pt-x" title="'+esc(c.부서+' · '+c.시작시+'~'+c.종료시+' · 사유: '+(c.사유||'미입력')+' / '+(c.상세사유||'-'))+'">'+esc(c.이름)+' <small>('+esc(c._s)+')</small></span>';
+}
+function confBadge(g) {
+  if (g.recs.length<2) return '';
+  if (g.fixed) return '<span class="mc-conf" style="color:var(--ora);border-color:var(--ora-b);background:var(--ora-l)">보정 '+g.fixed+'</span>';
+  return '<span class="mc-conf" style="color:var(--grn);border-color:var(--grn-b);background:var(--grn-l)">정상</span>';
+}
+function memberList(g) {
+  return '<details class="mc-list"><summary>개인별 상세 ('+g.recs.length+')</summary>'+
+    g.recs.map(function(r){
+      return '<div class="li"><b>'+esc(r.이름)+'</b><span class="mono">'+esc(r.시작시)+'~'+esc(r.종료시)+'</span><span>'+
+        (r._fix?'<span class="bd bd-ora" style="font-size:9px">'+esc(r._s)+'→보정</span> ':'')+
+        (r._mis?'<span class="bd bd-red" style="font-size:9px">'+esc(r._mis)+'?</span> ':'')+
+        esc(r.상세사유||'(미기재)')+'</span></div>';
+    }).join('')+'</details>';
+}
+function topDetail(g) {
+  return g.recs.map(function(r){return r.상세사유;}).filter(function(d){return d&&d.length>2&&!/^[\d.\-\s]+$/.test(d);})[0]||'';
+}
+function matchBanner(recs, cat) {
+  var fixed=recs.filter(function(r){return r._fix;});
+  var mis=recs.filter(function(r){return r._mis;});
+  var other=ALL.filter(function(r){return r._s===cat && r._mis;}).length;
+  var h='';
+  if (AUTO_FIX && fixed.length) {
+    var byS={}; fixed.forEach(function(r){ byS[r._s]=(byS[r._s]||0)+1; });
+    h+='<div class="ban ban-soft"><span class="ban-ic">🔧</span><div>사유를 <strong>'+
+      Object.keys(byS).map(function(k){return esc(k)+' '+byS[k]+'건';}).join(', ')+
+      '</strong>으로 선택했지만 상세사유에 '+cat+' 내용이 있어 <strong>'+cat+'</strong>(으)로 보정했습니다. 이름 옆 <b>보정</b> 표시 확인.</div></div>';
+  }
+  if (mis.length) {
+    h+='<div class="ban ban-info"><span class="ban-ic">🔎</span><div>사유는 '+cat+'인데 상세사유는 다른 내용으로 보이는 건 <strong>'+mis.length+'건</strong> — '+
+      esc(mis.slice(0,5).map(function(r){return r.이름+'('+r.상세사유+')';}).join(', '))+(mis.length>5?' 외':'')+'</div></div>';
+  }
+  return h;
+}
+function soloTable(solos, cat, pool) {
+  if (!solos.length) return '<div class="empty">✅ 모든 '+cat+' 이석이 매칭되었습니다</div>';
+  var h='<div class="tw"><table><thead><tr><th>날짜</th><th>이름/부서</th><th>시간</th><th>사유</th><th>상세사유</th><th>추정 참석자 (사유 다름)</th></tr></thead><tbody>';
+  solos.sort(function(a,b){return a.date.localeCompare(b.date)||a.s0.localeCompare(b.s0);}).forEach(function(g){
+    var r=g.recs[0], cands=findCandidates(g,cat,pool);
+    h+='<tr'+(cands.length?' class="r-ora"':'')+'><td>'+esc(r.날짜)+'</td><td><div class="nm"><b>'+esc(r.이름)+'</b><small>'+esc(r.부서)+'</small></div></td>'+
+      '<td class="mono">'+esc(r.시작시)+'~'+esc(r.종료시)+'</td>'+
+      '<td><span class="bd '+bdCls(r._s)+'">'+esc(r._s)+'</span>'+(r._fix?' <span class="bd bd-ora">보정</span>':'')+'</td>'+
+      '<td style="font-size:12px">'+esc(r.상세사유||'(미기재)')+'</td>'+
+      '<td>'+(cands.length?'<div class="ptags">'+cands.map(candTag).join('')+'</div>':'<span style="color:var(--t3);font-size:11px">-</span>')+'</td></tr>';
+  });
+  return h+'</tbody></table></div>';
 }
 
-function renderMeet() {
-  if (!ALL.length) { document.getElementById('kMeet').innerHTML=''; document.getElementById('mMeet').innerHTML=uploadPromptHTML(); return; }
-  var df=document.getElementById('fMeetDate').value, qf=document.getElementById('fMeetQ').value.trim().toLowerCase();
-  var recs=F.filter(function(d){ return d.사유.indexOf('회의')>=0&&(!df||d.날짜===df)&&(!qf||d.이름.toLowerCase().indexOf(qf)>=0||d.상세사유.toLowerCase().indexOf(qf)>=0); });
+function renderMatch(cat) {
+  var key = cat==='교육' ? 'Edu' : 'Meet';
+  var K=document.getElementById('k'+key), M=document.getElementById('m'+key), S=document.getElementById('s'+key), B=document.getElementById('ban'+key);
+  if (!ALL.length) { K.innerHTML=''; B.innerHTML=''; S.innerHTML=''; M.innerHTML=uploadPromptHTML(); return; }
+  var df=document.getElementById('f'+key+'Date').value, qf=document.getElementById('f'+key+'Q').value.trim().toLowerCase();
+  var pool=F.filter(function(d){ return !df||d.날짜===df; });
+  var all=pool.filter(function(d){ return isCat(d,cat); });
+  var groupsAll=matchGroups(all);
+  // 검색은 그룹 단위로 (구성원 중 하나라도 걸리면 그룹 전체 표시)
+  var hitQ=function(r){ return !qf||r.이름.toLowerCase().indexOf(qf)>=0||r.상세사유.toLowerCase().indexOf(qf)>=0||r.부서.toLowerCase().indexOf(qf)>=0; };
+  var groupsQ=groupsAll.filter(function(g){ return g.recs.some(hitQ); });
+  var groups=groupsQ.filter(function(g){return g.recs.length>=2;});
+  var solos=groupsQ.filter(function(g){return g.recs.length<2;});
+  var recs=[].concat.apply([], groupsQ.map(function(g){return g.recs;}));
   var totM=recs.reduce(function(s,d){return s+d.이석분;},0);
-  document.getElementById('kMeet').innerHTML = kpi('회의 이석',recs.length,'건','#1570EF')+kpi('회의 인원',uniq(recs.map(function(d){return d.계정||d.이름;})).length,'명','#6941C6')+kpi('총 회의 시간',hm(totM),'','#DC6803');
-  var groups=groupByOverlap(recs);
-  if (!groups.length){document.getElementById('mMeet').innerHTML='<div class="empty">회의 데이터 없음</div>';return;}
-  document.getElementById('mMeet').innerHTML=groups.map(function(g){
-    var s0=g.recs.map(function(r){return r.시작시;}).sort()[0], e0=g.recs.map(function(r){return r.종료시;}).sort().reverse()[0];
-    var topDet=g.recs.map(function(r){return r.상세사유;}).filter(function(d){return d&&d.length>2&&!/^[\d.\-\s]+$/.test(d);})[0]||'';
+  var matched=groups.reduce(function(s,g){return s+g.recs.length;},0);
+  var fixed=recs.filter(function(r){return r._fix;}).length;
+  var clr = cat==='교육' ? '#079455' : '#6941C6';
+
+  K.innerHTML = kpi(cat+' 이석',recs.length,'건 · '+hm(totM),'#1570EF')+
+    kpi(cat+' 그룹',groups.length,'2명 이상 매칭',clr)+
+    kpi('매칭률',(recs.length?Math.round(matched/recs.length*100):0)+'%',matched+'/'+recs.length+'건',matched===recs.length?'#079455':'#DC6803')+
+    kpi('단독(미매칭)',solos.length,'상대 없음',solos.length?'#DC6803':'#079455')+
+    kpi('자동보정',AUTO_FIX?fixed:'OFF',AUTO_FIX?'기타업무 → '+cat:'토글 꺼짐',fixed?'#DC6803':'#475467');
+  B.innerHTML = matchBanner(recs, cat);
+  document.getElementById('n'+key+'G').textContent = groups.length+'그룹 · '+matched+'건';
+  document.getElementById('n'+key+'S').textContent = solos.length+'건';
+
+  if (!groups.length) M.innerHTML='<div class="empty">'+cat+' 그룹 없음</div>';
+  else M.innerHTML=groups.map(function(g){
+    var cands=findCandidates(g,cat,pool), det=topDetail(g), body='';
+    if (cat==='교육') {
+      var ro=eduRoles(g);
+      if (ro.t.length) body+='<div class="rl">교육자</div><div class="ptags">'+ro.t.map(function(r){return ptag(r,'pt-t');}).join('')+'</div>';
+      if (ro.s.length) body+='<div class="rl">교육생</div><div class="ptags">'+ro.s.map(function(r){return ptag(r,'pt-s');}).join('')+'</div>';
+      if (ro.u.length) body+='<div class="rl">역할 미확인</div><div class="ptags">'+ro.u.map(function(r){return ptag(r,'pt-u');}).join('')+'</div>';
+    } else {
+      body+='<div class="ptags">'+g.recs.map(function(r){return ptag(r,'pt-m');}).join('')+'</div>';
+    }
+    if (cands.length) body+='<div class="rl">추정 참석자 · 사유 다르게 선택</div><div class="ptags">'+cands.map(candTag).join('')+'</div>';
     return '<div class="mcard">'+
-      '<div class="mc-top"><div><div class="mc-ttl">💬 '+esc(g.date)+'</div><div class="mc-sub">'+esc(s0)+'~'+esc(e0)+' · '+g.recs.length+'명</div></div><span class="bd bd-pur">회의</span></div>'+
-      '<div class="ptags">'+g.recs.map(function(r){return '<span class="pt pt-m" title="'+esc(r.부서)+' · '+hm(r.이석분)+'">'+esc(r.이름)+'</span>';}).join('')+'</div>'+
-      (topDet?'<div class="mc-det">📝 '+esc(topDet.slice(0,80))+'</div>':'')+
-      '<div class="mc-det" style="color:var(--t3)">'+esc(uniq(g.recs.map(function(r){return r.부서;})).join(' · '))+'</div>'+
+      '<div class="mc-top"><div><div class="mc-ttl">'+(cat==='교육'?'📚 ':'💬 ')+esc(g.date)+confBadge(g)+'</div><div class="mc-sub">'+esc(g.s0)+'~'+esc(g.e0)+' · '+g.recs.length+'명 · '+esc(uniq(g.recs.map(function(r){return r.부서;})).join(', '))+'</div></div><span class="bd '+(cat==='교육'?'bd-grn':'bd-pur')+'">'+cat+'</span></div>'+
+      body+
+      (det?'<div class="mc-det">📝 '+esc(det.slice(0,80))+'</div>':'')+
+      memberList(g)+
     '</div>';
   }).join('');
+  S.innerHTML = soloTable(solos, cat, pool);
 }
+function renderEdu()  { renderMatch('교육'); }
+function renderMeet() { renderMatch('회의'); }
 
 // ══════════════════════════════════════════
 // ETC (기타업무)
@@ -1150,6 +1377,7 @@ function renderEtc() {
 
   var recs = F.filter(function(d){
     if (d._s !== '기타업무') return false;
+    if (AUTO_FIX && d._fix) return false;   // 회의/교육으로 보정된 건은 해당 탭으로 이동
     if (df  && d.날짜 !== df)  return false;
     if (dep && d.부서 !== dep) return false;
     if (qf  && d.이름.toLowerCase().indexOf(qf) < 0 && d.상세사유.toLowerCase().indexOf(qf) < 0) return false;
@@ -1184,6 +1412,14 @@ function renderEtc() {
     kpi('미기재', blank.length, '빈칸', blank.length ? '#D92D20' : '#079455');
 
   document.getElementById('scEtc').textContent = '총 '+recs.length+'건';
+  var moved = F.filter(function(d){ return d._s==='기타업무' && d._fix && (!df||d.날짜===df) && (!dep||d.부서===dep); });
+  var mvM = moved.filter(function(d){return d._cat==='회의';}).length, mvE = moved.length-mvM;
+  document.getElementById('banEtc').innerHTML = moved.length
+    ? '<div class="ban ban-soft"><span class="ban-ic">🔧</span><div>사유를 기타업무로 선택했지만 상세사유가 회의/교육인 <strong>'+moved.length+'건</strong>'+
+      (AUTO_FIX ? '은 <strong>회의 '+mvM+'건 · 교육 '+mvE+'건</strong>으로 보정되어 이 목록에서 제외했습니다. (회의/교육 매칭 탭에서 확인)'
+                : '이 있습니다. (자동보정 꺼짐 — 회의 '+mvM+'건 · 교육 '+mvE+'건)')+
+      '<br><small>'+esc(moved.slice(0,6).map(function(d){return d.이름+': '+d.상세사유;}).join(' / '))+(moved.length>6?' …':'')+'</small></div></div>'
+    : '';
 
   // 정렬: 미기재→불충분→기재완료, 그룹 내 날짜+시작시 순
   var orderMap = {blank:0, vague:1, ok:2};
@@ -1377,7 +1613,7 @@ function renderReport() {
   // ── 기타업무
   function isBlankS(s){s=(s||'').trim();return !s||s==='nan'||/^[.\-\s]+$/.test(s);}
   function isVagueS(s){return ['업무중','업무중입니다','업무 중','기타업무','업무'].indexOf((s||'').trim())>=0;}
-  var etcAll  = base.filter(function(d){return d._s==='기타업무';}).sort(function(a,b){
+  var etcAll  = base.filter(function(d){return d._s==='기타업무'&&!(AUTO_FIX&&d._fix);}).sort(function(a,b){
     var oa=isBlankS(a.상세사유)?0:isVagueS(a.상세사유)?1:2;
     var ob=isBlankS(b.상세사유)?0:isVagueS(b.상세사유)?1:2;
     if(oa!==ob) return oa-ob;
@@ -1387,12 +1623,14 @@ function renderReport() {
   var etcVague=etcAll.filter(function(d){return !isBlankS(d.상세사유)&&isVagueS(d.상세사유);});
 
   // ── 교육 매칭
-  var eduRecs=ALL.filter(function(d){return d.사유.indexOf('교육')>=0;});
+  var eduRecs=ALL.filter(function(d){return isCat(d,'교육');});
   var eduGroups=groupByOverlap(eduRecs);
 
   // ── 회의 매칭
-  var meetRecs=ALL.filter(function(d){return d.사유.indexOf('회의')>=0;});
+  var meetRecs=ALL.filter(function(d){return isCat(d,'회의');});
   var meetGroups=groupByOverlap(meetRecs);
+  var eduFix=AUTO_FIX?eduRecs.filter(function(d){return d._fix;}).length:0;
+  var meetFix=AUTO_FIX?meetRecs.filter(function(d){return d._fix;}).length:0;
 
   // ── 부서별 비업무 TOP5
   var deptMap={};
@@ -1555,19 +1793,12 @@ function renderReport() {
   html += '<div>';
 
   // 교육 매칭
-  html += secBox('edu2','📚 교육 매칭', eduGroups.length+'그룹 · '+eduRecs.length+'건', '#079455');
+  html += secBox('edu2','📚 교육 매칭', eduGroups.length+'그룹 · '+eduRecs.length+'건'+(eduFix?' (보정 '+eduFix+')':''), '#079455');
   if (!eduGroups.length) {
     html += '<div style="font-size:11px;color:var(--t3);padding:4px 0">교육 데이터 없음</div>';
   } else {
     eduGroups.slice(0,6).forEach(function(g){
-      var teachers=[],students=[];
-      g.recs.forEach(function(r){
-        var det=r.상세사유.toLowerCase();
-        var others=g.recs.filter(function(o){return (o.계정||o.이름)!==(r.계정||r.이름);}).map(function(o){return o.이름;});
-        if(det.indexOf('받')>=0) students.push(r);
-        else if(others.some(function(n){return r.상세사유.indexOf(n)>=0;})) teachers.push(r);
-        else teachers.push(r);
-      });
+      var ro=eduRoles(g), teachers=ro.t, students=ro.s.concat(ro.u);
       var s0=g.recs.map(function(r){return r.시작시;}).sort()[0];
       var e0=g.recs.map(function(r){return r.종료시;}).sort().reverse()[0];
       var topDet=g.recs.map(function(r){return r.상세사유;}).filter(function(d){return d&&d.length>2&&!/^[\d.\-\s]+$/.test(d);})[0]||'';
@@ -1583,7 +1814,7 @@ function renderReport() {
   html += closeSecBox('edu2');
 
   // 회의 매칭
-  html += secBox('meet2','💬 회의 매칭', meetGroups.length+'그룹 · '+meetRecs.length+'건', '#6941C6');
+  html += secBox('meet2','💬 회의 매칭', meetGroups.length+'그룹 · '+meetRecs.length+'건'+(meetFix?' (보정 '+meetFix+')':''), '#6941C6');
   if (!meetGroups.length) {
     html += '<div style="font-size:11px;color:var(--t3);padding:4px 0">회의 데이터 없음</div>';
   } else {
@@ -1749,7 +1980,7 @@ function getAIPrompt(id) {
     },
     etc: function(){
       function iv(s){var v=['업무중','업무중입니다','업무 중','기타업무','업무'];return v.indexOf((s||'').trim())>=0;}
-      var eb=base.filter(function(d){return d._s==='기타업무'&&(!(d.상세사유||'').trim()||iv(d.상세사유));});
+      var eb=base.filter(function(d){return d._s==='기타업무'&&!(AUTO_FIX&&d._fix)&&(!(d.상세사유||'').trim()||iv(d.상세사유));});
       if (!eb.length) return '기타업무 미기재 없음';
       return '다음은 기타업무 내용 미기재/불충분 현황입니다:\n'+
         eb.map(function(r){return '- '+r.이름+'('+r.부서+'): '+hm(r.이석분)+', 입력내용: "'+(r.상세사유||'없음')+'"';}).join('\n');
@@ -1783,8 +2014,8 @@ function getAIPrompt(id) {
       '- 비업무 15분 초과: '+nb2.length+'건\n'+
       '- 비업무 반복(2회+): '+freq2.length+'건\n'+
       '- 사유 미입력: '+ui2.length+'건\n'+
-      '- 교육 그룹: '+groupByOverlap(ALL.filter(function(d){return d.사유.indexOf("교육")>=0;})).length+'개\n'+
-      '- 회의 그룹: '+groupByOverlap(ALL.filter(function(d){return d.사유.indexOf("회의")>=0;})).length+'개';
+      '- 교육 그룹: '+groupByOverlap(ALL.filter(function(d){return isCat(d,"교육");})).length+'개\n'+
+      '- 회의 그룹: '+groupByOverlap(ALL.filter(function(d){return isCat(d,"회의");})).length+'개';
   };
 
   var dataStr = (prompts[id] && prompts[id]()) || '';
@@ -1906,8 +2137,8 @@ function renderMonthly() {
     bd[r.부서].ps[r.계정||r.이름]=1;bd[r.부서].c++;bd[r.부서].m+=r.이석분;
     if(r._nb)bd[r.부서].nb++;
     if(r.사유.indexOf('점심')>=0)bd[r.부서].lunch++;
-    if(r.사유.indexOf('회의')>=0)bd[r.부서].meet++;
-    if(r.사유.indexOf('교육')>=0)bd[r.부서].train++;
+    if(isCat(r,'회의'))bd[r.부서].meet++;
+    if(isCat(r,'교육'))bd[r.부서].train++;
   });
   var da=Object.entries(bd).map(function(e){
     return {d:e[0],ps:Object.keys(e[1].ps).length,c:e[1].c,m:e[1].m,nb:e[1].nb,nbr:e[1].c>0?((e[1].nb/e[1].c)*100).toFixed(1):'0',lunch:e[1].lunch,meet:e[1].meet,train:e[1].train,avg:Math.round(e[1].m/Object.keys(e[1].ps).length)};
@@ -2043,6 +2274,14 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('fEtcDate').addEventListener('change', renderEtc);
   document.getElementById('fEtcDept').addEventListener('change', renderEtc);
   document.getElementById('fEtcQ').addEventListener('input', renderEtc);
+  // 자동보정 토글 (교육/회의 탭 공통)
+  document.querySelectorAll('.autoFixChk').forEach(function(chk){
+    chk.addEventListener('change', function(){
+      AUTO_FIX = this.checked;
+      document.querySelectorAll('.autoFixChk').forEach(function(c){ c.checked = AUTO_FIX; });
+      renderAll();
+    });
+  });
   // 칩
   ['점심','회의','교육','기타업무','외근','휴식','개인용무'].forEach(function(r){
     var c=document.createElement('div'); c.className='chip'; c.textContent=r;
